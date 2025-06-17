@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Self-Checkout System</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background-color: orange; color: #fffdd0; padding: 40px; }
+    .screen { display: none; opacity: 0; transition: opacity 0.5s ease; }
+    .active { display: block; opacity: 1; }
+    button { padding: 10px 20px; margin: 10px; font-size: 16px; background-color: white; border: none; color: orange; cursor: pointer; border-radius: 5px; font-weight: bold; transition: transform 0.2s ease; }
+    button:hover { transform: scale(1.05); }
+    table { width: 60%; margin: 20px auto; border-collapse: collapse; color: #fffdd0; }
+    td, th { padding: 10px; border: 1px solid #fffdd0; }
+    input[type="text"] { padding: 10px; font-size: 16px; border-radius: 5px; border: none; margin-top: 10px; width: 60%; }
+    .info-table { width: 60%; margin: 40px auto 0 auto; border-collapse: collapse; background-color: #fffdd026; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <!-- Welcome Screen -->
+  <div id="welcome" class="screen active">
+    <img src="logo.png" alt="Speedmart Logo" width="200" />
+    <h1>Welcome to Self-Checkout</h1>
+    <button onclick="showScreen('scanning')">Start Scanning</button>
+  </div>
+
+  <!-- Scanning Screen -->
+  <div id="scanning" class="screen">
+    <h2>Scanning in Progress...</h2>
+    <input type="text" id="barcodeInput" placeholder="Enter or scan code..." onkeydown="scanProduct(event)" />
+    <table>
+      <thead><tr><th>Product</th><th>Price (RM)</th><th>Action</th></tr></thead>
+      <tbody id="productTable"></tbody>
+    </table>
+    <h3 id="totalDisplay">Total: RM0.00</h3>
+    <button onclick="showScreen('confirmation')">Proceed</button>
+
+    <!-- Item Codes Reference -->
+    <h3>Item Codes Reference</h3>
+    <table class="info-table">
+      <thead><tr><th>Code</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>1001</td><td>Eggs</td></tr>
+        <tr><td>1002</td><td>Eggs with Extra Omega</td></tr>
+        <tr><td>1003</td><td>Bread</td></tr>
+        <tr><td>1004</td><td>Bread (Large)</td></tr>
+        <tr><td>1005</td><td>Cola 1.5L</td></tr>
+        <tr><td>1006</td><td>Cola 200mL</td></tr>
+        <tr><td>1007</td><td>Milo 200mL</td></tr>
+        <tr><td>1008</td><td>Milo 500mL</td></tr>
+        <tr><td>1009</td><td>Milo 1L</td></tr>
+        <tr><td>1010</td><td>Butter Small</td></tr>
+        <tr><td>1011</td><td>Butter Large</td></tr>
+        <tr><td>1012</td><td>Nutella</td></tr>
+        <tr><td>1013</td><td>Peanut Butter</td></tr>
+        <tr><td>1014</td><td>Rice Beans 1KG</td></tr>
+        <tr><td>1015</td><td>Rice Beans 5KG</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Confirmation Screen -->
+  <div id="confirmation" class="screen">
+    <h2>Confirm Your Cart</h2>
+    <table>
+      <thead><tr><th>Product</th><th>Price (RM)</th></tr></thead>
+      <tbody id="confirmTable"></tbody>
+    </table>
+    <h3 id="confirmTotal">Total: RM0.00</h3>
+    <button onclick="showScreen('paymentOptions')">Proceed to Payment</button>
+    <button onclick="showScreen('scanning')">Go Back</button>
+  </div>
+
+  <!-- Payment Options -->
+  <div id="paymentOptions" class="screen">
+    <h2>Select Payment Method</h2>
+    <button onclick="payWithCard()">Pay with Card</button>
+    <button onclick="payWithQR()">Pay with QR</button>
+  </div>
+
+  <!-- QR Screen (Scannable for Phone) -->
+  <div id="qrScreen" class="screen">
+    <h2>Scan the QR to Print Receipt</h2>
+    <img id="qrCode" src="" alt="QR Code" />
+  </div>
+
+  <!-- Card Scan Screen -->
+  <div id="cardScan" class="screen">
+    <h2>Scanning Card...</h2>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Chip_and_contactless_card.jpg/320px-Chip_and_contactless_card.jpg" width="300" alt="Card Scan Demo" />
+  </div>
+
+  <!-- Payment Progress -->
+  <div id="paymentProgress" class="screen">
+    <h2>Payment in Progress...</h2>
+    <button onclick="exportPDFAndFinish()">I Paid</button>
+  </div>
+
+  <!-- Thank You Screen -->
+  <div id="thankyou" class="screen">
+    <img src="logo.png" alt="Speedmart Logo" width="200" />
+    <h1>Thank You!</h1>
+    <p>Your transaction is complete.</p>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+    const products = {
+      "1001": { name: "Eggs", price: 5.00 },
+      "1002": { name: "Eggs with Extra Omega", price: 6.50 },
+      "1003": { name: "Bread", price: 4.20 },
+      "1004": { name: "Bread (Large)", price: 6.00 },
+      "1005": { name: "Cola 1.5L", price: 3.50 },
+      "1006": { name: "Cola 200mL", price: 1.20 },
+      "1007": { name: "Milo 200mL", price: 2.00 },
+      "1008": { name: "Milo 500mL", price: 4.50 },
+      "1009": { name: "Milo 1L", price: 8.00 },
+      "1010": { name: "Butter Small", price: 5.00 },
+      "1011": { name: "Butter Large", price: 8.50 },
+      "1012": { name: "Nutella", price: 12.00 },
+      "1013": { name: "Peanut Butter", price: 10.00 },
+      "1014": { name: "Rice Beans 1KG", price: 7.00 },
+      "1015": { name: "Rice Beans 5KG", price: 30.00 }
+    };
+    let cart = [];
+    let receiptId = "";
+    
+    // On load: if URL has cart data, parse and print receipt
+    window.onload = () => {
+      const params = new URLSearchParams(window.location.search);
+      if ([...params].length) {
+        try {
+          cart = JSON.parse(decodeURIComponent([...params][0][0]));
+          exportPDFAndFinish();
+        } catch {}
+      }
+      showScreen('welcome');
+    };
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.opacity = 0; });
+      const target = document.getElementById(id);
+      target.classList.add('active');
+      setTimeout(() => target.style.opacity = 1, 10);
+      if (id === 'scanning') initCart();
+      if (id === 'confirmation') renderConfirm();
+    }
+
+    function initCart() {
+      cart = [];
+      renderCart();
+      updateTotal();
+      document.getElementById('barcodeInput').value = '';
+    }
+
+    function scanProduct(e) {
+      if (e.key === 'Enter') {
+        const code = e.target.value.trim();
+        if (products[code]) { cart.push(products[code]); renderCart(); updateTotal(); e.target.value = ''; }
+        else alert('Product not found.');
+      }
+    }
+
+    function renderCart() {
+      const tbl = document.getElementById('productTable'); tbl.innerHTML = '';
+      cart.forEach((p,i) => tbl.innerHTML += `<tr><td>${p.name}</td><td>RM${p.price.toFixed(2)}</td><td><button onclick="removeItem(${i})">Remove</button></td></tr>`);
+    }
+
+    function removeItem(idx) { cart.splice(idx,1); renderCart(); updateTotal(); }
+
+    function updateTotal() {
+      const total = cart.reduce((s,p) => s + p.price, 0);
+      document.getElementById('totalDisplay').textContent = `Total: RM${total.toFixed(2)}`;
+    }
+
+    function renderConfirm() {
+      const ct = document.getElementById('confirmTable'); ct.innerHTML = '';
+      cart.forEach(p => ct.innerHTML += `<tr><td>${p.name}</td><td>RM${p.price.toFixed(2)}</td></tr>`);
+      document.getElementById('confirmTotal').textContent = document.getElementById('totalDisplay').textContent;
+    }
+
+    function payWithQR() {
+      receiptId = "TXN_" + Math.floor(Math.random() * 1e6);
+      const data = encodeURIComponent(JSON.stringify(cart));
+      const url = `${window.location.origin}${window.location.pathname}?${data}`;
+      document.getElementById('qrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}`;
+      showScreen('qrScreen');
+    }
+
+    function payWithCard() {
+      receiptId = "TXN_" + Math.floor(Math.random() * 1e6);
+      showScreen('cardScan');
+      setTimeout(() => showScreen('paymentProgress'), 2000);
+    }
+
+    function exportPDFAndFinish() {
+      const doc = new jsPDF(); doc.setFontSize(16); doc.text(`Receipt #${receiptId}`,20,20);
+      let y = 30;
+      cart.forEach(item => { doc.text(`${item.name} - RM${item.price.toFixed(2)}`,20,y); y += 10; });
+      const total = cart.reduce((s,p) => s + p.price, 0);
+      doc.text(`Total: RM${total.toFixed(2)}`,20,y+10);
+      doc.save(`receipt_${receiptId}.pdf`);
+      showScreen('thankyou');
+    }
+  </script>
+</body>
+</html>

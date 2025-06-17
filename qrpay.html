@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Self-Checkout System</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                text-align: center;
+                background-color: orange;
+                color: #fffdd0;
+                padding: 40px;
+            }
+            .screen {
+                display: none;
+                opacity: 0;
+                transition: opacity 0.5s ease;
+            }
+            .active {
+                display: block;
+                opacity: 1;
+            }
+            button {
+                padding: 10px 20px;
+                margin: 10px;
+                font-size: 16px;
+                background-color: white;
+                border: none;
+                color: orange;
+                cursor: pointer;
+                border-radius: 5px;
+                font-weight: bold;
+                transition: transform 0.2s ease;
+            }
+            button:hover {
+                transform: scale(1.05);
+            }
+            table {
+                width: 60%;
+                margin: 20px auto;
+                border-collapse: collapse;
+                color: #fffdd0;
+            }
+            td,
+            th {
+                padding: 10px;
+                border: 1px solid #fffdd0;
+            }
+            input[type="text"] {
+                padding: 10px;
+                font-size: 16px;
+                border-radius: 5px;
+                border: none;
+                margin-top: 10px;
+                width: 60%;
+            }
+            .info-table {
+                width: 60%;
+                margin: 40px auto 0;
+                border-collapse: collapse;
+                background-color: #fffdd026;
+                font-size: 14px;
+            }
+            #qrCode {
+                margin-top: 20px;
+            }
+            #timer {
+                font-size: 18px;
+                margin-top: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="paymentProgress" class="screen active">
+            <button onclick="exportPDFAndFinish()">Pay Now</button>
+        </div>
+        <div id="thankyou" class="screen">
+            <img src="logo.png" alt="Speedmart Logo" width="200" />
+            <h1>Thank You!</h1>
+            <p>Your transaction is complete.</p>
+        </div>
+        <script>
+            const { jsPDF } = window.jspdf;
+            const products = {
+                1001: { name: "Eggs", price: 2.0 },
+                1002: { name: "Eggs with Extra Omega", price: 2.8 },
+                1003: { name: "Bread", price: 1.8 },
+                1004: { name: "Bread (Large)", price: 2.5 },
+                1005: { name: "Cola 1.5L", price: 2.2 },
+                1006: { name: "Cola 200mL", price: 1.0 },
+                1007: { name: "Milo 200mL", price: 1.5 },
+                1008: { name: "Milo 500mL", price: 2.8 },
+                1009: { name: "Milo 1L", price: 4.0 },
+                1010: { name: "Butter Small", price: 2.4 },
+                1011: { name: "Butter Large", price: 4.3 },
+                1012: { name: "Nutella", price: 5.0 },
+                1013: { name: "Peanut Butter", price: 3.8 },
+                1014: { name: "Rice Beans 1KG", price: 2.9 },
+                1015: { name: "Rice Beans 5KG", price: 9.5 }
+            };
+            let cart = JSON.parse(decodeURIComponent(window.location.search.substring(1)));
+            let receiptId = "TXN_" + Math.floor(Math.random() * 1e6);
+            function showScreen(id) {
+                document.querySelectorAll(".screen").forEach((s) => {
+                    s.classList.remove("active");
+                    s.style.opacity = 0;
+                });
+                const target = document.getElementById(id);
+                target.classList.add("active");
+                setTimeout(() => (target.style.opacity = 1), 10);
+                if (id === "scanning") {
+                    cart = [];
+                    document.getElementById("productTable").innerHTML = "";
+                    document.getElementById("totalDisplay").textContent = "Total: $0.00";
+                    document.getElementById("barcodeInput").value = "";
+                }
+            }
+            function exportPDFAndFinish() {
+                const doc = new jsPDF();
+                doc.setFontSize(16);
+                doc.text(`Receipt #${receiptId}`, 20, 20);
+                let y = 30;
+                cart.forEach((item) => {
+                    doc.text(`${item.name} - $${item.price.toFixed(2)}`, 20, y);
+                    y += 10;
+                });
+                const total = cart.reduce((sum, it) => sum + it.price, 0);
+                doc.text(`Total: $${total.toFixed(2)}`, 20, y + 10);
+                doc.save(`receipt_${receiptId}.pdf`);
+                showScreen("thankyou");
+            }
+        </script>
+    </body>
+</html>
