@@ -6,55 +6,18 @@
   <title>QR Payment Processing</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: orange;
-      color: #fffdd0;
-      padding: 40px;
-    }
-    .screen {
-      display: none;
-      opacity: 0;
-      transition: opacity 0.5s ease;
-    }
-    .active {
-      display: block;
-      opacity: 1;
-    }
-    .spinner {
-      margin: 40px auto;
-      width: 50px;
-      height: 50px;
-      border: 6px solid #fffdd0;
-      border-top: 6px solid white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    button {
-      padding: 10px 20px;
-      margin: 20px;
-      font-size: 16px;
-      background-color: white;
-      border: none;
-      color: orange;
-      cursor: pointer;
-      border-radius: 5px;
-      font-weight: bold;
-    }
-    button:disabled {
-      background-color: #ffffff66;
-      cursor: default;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; background-color: orange; color: #fffdd0; padding: 40px; }
+    .screen { display: none; opacity: 0; transition: opacity 0.5s ease; }
+    .active { display: block; opacity: 1; }
+    .spinner { margin: 40px auto; width: 50px; height: 50px; border: 6px solid #fffdd0; border-top: 6px solid white; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+    button { padding: 10px 20px; margin: 20px; font-size: 16px; background-color: white; border: none; color: orange; cursor: pointer; border-radius: 5px; font-weight: bold; }
+    button:disabled { background-color: #ffffff66; cursor: not-allowed; }
   </style>
 </head>
 <body>
   <!-- Processing Screen -->
-  <div id="processing" class="screen active">
+  <div id="processing" class="screen">
     <h2>Processing Payment...</h2>
     <div class="spinner"></div>
   </div>
@@ -62,42 +25,43 @@
   <!-- Download Receipt Screen -->
   <div id="download" class="screen">
     <h2>Payment Complete</h2>
-    <button id="downloadBtn">Download Receipt</button>
+    <button id="downloadBtn" disabled>Download Receipt</button>
   </div>
 
   <script>
     const { jsPDF } = window.jspdf;
-    // Retrieve cart from URL
+    // Parse cart JSON from URL (first parameter key)
     let cart = [];
     const params = new URLSearchParams(window.location.search);
-    if ([...params].length) {
+    if (params.toString()) {
+      const entry = [...params][0];
       try {
-        cart = JSON.parse(decodeURIComponent([...params][0][0]));
-      } catch (e) {
-        console.error(e);
-      }
+        cart = JSON.parse(decodeURIComponent(entry[0]));
+      } catch (e) { console.error('Failed to parse cart', e); }
     }
     const receiptId = 'TXN_' + Math.floor(Math.random() * 1e6);
 
-    // After delay show download button
+    // Utility to switch screens
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.opacity = 0; });
+      const target = document.getElementById(id);
+      target.classList.add('active');
+      setTimeout(() => target.style.opacity = 1, 10);
+    }
+
+    // On load, start processing then enable download
     window.onload = () => {
+      // show processing
+      showScreen('processing');
+      // after 3s, show download
       setTimeout(() => {
         showScreen('download');
+        const btn = document.getElementById('downloadBtn');
+        btn.disabled = false;
       }, 3000);
     };
 
-    function showScreen(id) {
-      document.querySelectorAll('.screen').forEach(s => {
-        s.classList.remove('active');
-        s.style.opacity = 0;
-      });
-      const target = document.getElementById(id);
-      target.classList.add('active');
-      setTimeout(() => {
-        target.style.opacity = 1;
-      }, 10);
-    }
-
+    // Generate and save PDF receipt
     document.getElementById('downloadBtn').addEventListener('click', () => {
       const doc = new jsPDF();
       doc.setFontSize(16);
